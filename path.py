@@ -92,20 +92,21 @@ class Graph:
 		self.end = None
 		global namenum
 		for i in range(0,namenum+1):
-			self.edges[str(i)]= []
-			self.weights[str(i)]= []
+			self.edges[str(i)]= set()
+			self.weights[str(i)]= set()
 		for node in nodes:
 			for c in node.edges:
-				self.edges[node.name].append(c[1].name)
-				self.edges[c[1].name].append(node.name)
-				self.weights[(node.name,c[1].name)] = math.hypot(c[1].x-node.x,c[1].y-node.y)
-				self.weights[(c[1].name,node.name)] = math.hypot(c[1].x-node.x,c[1].y-node.y)
-				if(c[1].start):
-					self.start = c[1].name
-					#pg.draw.circle(gameDisplay,(0,255,255),(self.start.x,self.start.y),5)
-				if(c[1].end):
-					self.end = c[1].name
-					#pg.draw.circle(gameDisplay,(0,255,255),(self.end.x,self.end.y),5)
+				if(node.name != c[1].name):
+					self.edges[node.name].add(c[1].name)
+					self.edges[c[1].name].add(node.name)
+					self.weights[(node.name,c[1].name)] = math.hypot(c[1].x-node.x,c[1].y-node.y)
+					self.weights[(c[1].name,node.name)] = math.hypot(c[1].x-node.x,c[1].y-node.y)
+					if(c[1].start):
+						self.start = c[1].name
+						#pg.draw.circle(gameDisplay,(0,255,255),(self.start.x,self.start.y),5)
+					if(c[1].end):
+						self.end = c[1].name
+						#pg.draw.circle(gameDisplay,(0,255,255),(self.end.x,self.end.y),5)
 	def pathfinder(self):
 		shortest_paths = {self.start: (None, 0)}
 		current_node = self.start
