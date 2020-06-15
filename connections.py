@@ -3,7 +3,8 @@ import pygame as pg
 from pygame.locals import *
 import random as rand
 import itertools
-
+import ast
+import json
 
 pg.init()
 
@@ -14,7 +15,7 @@ gameDisplay.fill((0,0,0))
 
 end = False
 
-namenum = 1
+namenum = 0
 
 
 pos = [[-0.3, -0.3], [2.3, -0.3], [2.7, -0.3], [2.7, 0.3], [6.3, -0.3], [1.7, 1.3], [2.3, 1.3], [4.3, 1.7], [5.7, 2.3], [6.3, 2.3], [4.7, 2.7], [4.7, 3.3],[6.3, 2.7], [1.3, 3.7], [1.3, 4.3], [3.7, 5.3], [4.3, 5.3], [-0.3, 6.3], [3.3, 5.7], [3.3, 6.3], [3.7, 5.7], [3.7, 6.3], [6.3, 6.3]];
@@ -212,7 +213,7 @@ def create_edges(nodes,lwall):
 		for c in nodes:
 			collide = False
 			temp = line_rect((node.x,node.y),(c.x,c.y),lwall)
-			if(not temp):
+			if(not temp and node.name != c.name):
 				node.edges.append((node,c))
 def player_edges(nodes,player,lwall):
 	edges = []
@@ -224,8 +225,8 @@ def player_edges(nodes,player,lwall):
 def create_dict(nodes,lwall):
 	pos_edge = {}
 	l = 0
-	diff = .25
-	h = int(7/.25)
+	diff = .5
+	h = int(7/diff)
 	inc = 1
 	for i in range(l,h,inc):
 		for j in range(l,h,inc):
@@ -234,17 +235,22 @@ def create_dict(nodes,lwall):
 				temp = line_rect(((i*diff+5)*50,(j*diff+5)*50),(n.x,n.y),lwall)
 				if(not temp):
 					pos_edge[(i*diff,j*diff)].append(n.name)
-	values = []
-	for k, v in pos_edge.items():
-		must_insert = True
-		for val in values:
-			if val[0] == v:
-				val[1].append(k)
-				must_insert = False
-				break
-		if must_insert: values.append([v, [k]])
-	#print(len(values)) #prints [[[10, 15], ['a', 'c']]]
-	return pos_edge
+			pos_edge[(i*diff,j*diff)] = str(pos_edge[(i*diff,j*diff)])
+	#print(pos_edge)
+	reverse = {}
+	for k,v in pos_edge.items():
+		reverse[v] = reverse.get(v,[])
+		reverse[v].append(k)
+	print(len(reverse))
+	print(len(pos_edge))
+	ind_edge = {}
+	ret_ind = 0
+	for key in reverse:
+		for tup in reverse[key]:
+			pos_edge[tup] = ret_ind
+		ind_edge[ret_ind] = ast.literal_eval(key)
+		ret_ind+=1
+	return pos_edge,ind_edge
 
 
 
@@ -271,6 +277,17 @@ for i in hWalls:
 	walls.append(Walls(i,'h'))
 nodes = onePass(pos)
 create_edges(nodes,walls)
+
+adjacency_mat = []
+cnter = 0
+for n in nodes:
+	adjacency_mat.append([])
+	print(n.name, " ")
+	for e in n.edges:
+		adjacency_mat[cnter].append([e[1].name,math.hypot(e[1].x/50-e[0].x/50,e[1].y/50-e[0].y/50)])
+		print(e[0].name,e[1].name)
+	cnter+=1
+print(adjacency_mat)
 g = Graph(nodes)
 
 dik_dic = {}
@@ -278,9 +295,19 @@ for n in nodes:
 	for c in nodes:
 		if(n.name != c.name):
 			dik_dic[(n.name,c.name)] = g.pathfinder(n,c)
-connections = create_dict(nodes,walls)
+connections,helper = create_dict(nodes,walls)
 #print(len(dik_dic))
-print(len(connections))
+#print(len(connections))
+new_connections = {}
+new_helper = {}
+for key in connections:
+	new_connections[str(key[0]*1000+key[1])] = connections[key]
+for key in helper:
+	new_helper[str(key)] = helper[key]
+connect_json = json.dumps(new_connections)
+helper_json = json.dumps(new_helper)
+print(connect_json)
+print(helper_json)
 while not end:
 	for event in pg.event.get():
 		if event.type == pg.QUIT:
@@ -307,7 +334,7 @@ while not end:
 		for s in g:
 			for e in f:
 				if(s!=e):
-					dist = dik_dic[s,e][1]+math.hypot(nodes[s-1].x-zomb.x,nodes[s-1].y-zomb.y)+math.hypot(nodes[e-1].x-me.x,nodes[e-1].y-me.y)
+					dist = dik_dic[s,e][1]+math.hypot(nodes[s].x-zomb.x,nodes[s].y-zomb.y)+math.hypot(nodes[e].x-me.x,nodes[e].y-me.y)
 					if(dist<min_dist):
 						vals = (s,e)
 						min_dist=dist
@@ -316,7 +343,7 @@ while not end:
 			index = 0
 			path = dik_dic[vals][0]
 			for z in path:
-				pg.draw.rect(gameDisplay,(127,127,127),(nodes[z-1].x,nodes[z-1].y,5,5))
+				pg.draw.rect(gameDisplay,(127,127,127),(nodes[z].x,nodes[z].y,5,5))
 			for i in g:
 				try:
 					pot.append(path.index(i))
@@ -325,7 +352,7 @@ while not end:
 					pass
 			min_dist = 20000
 			for i in pot:
-				dist = math.hypot(nodes[path[i]-1].x-me.x,nodes[path[i]-1].y-me.y)
+				dist = math.hypot(nodes[path[i]].x-me.x,nodes[path[i]].y-me.y)
 				'''
 				if(path[i] != e):
 					dist = dik_dic[(path[i],e)][1]
@@ -335,19 +362,27 @@ while not end:
 				if(dist<min_dist):
 					min_dist = dist
 					index = i
-			a = math.atan2(nodes[path[index]-1].y-zomb.y,nodes[path[index]-1].x-zomb.x)
+			a = math.atan2(nodes[path[index]].y-zomb.y,nodes[path[index]].x-zomb.x)
 			zomb.x+=2*math.cos(a)
 			zomb.y+=2*math.sin(a)
 		else:
-			a = math.atan2(nodes[vals[0]-1].y-zomb.y,nodes[vals[0]-1].x-zomb.x)
+			a = math.atan2(nodes[vals[0]].y-zomb.y,nodes[vals[0]].x-zomb.x)
 			zomb.x+=2*math.cos(a)
 			zomb.y+=2*math.sin(a)
-	print((me.x,me.y))
-	x_temp = (int(me.x/50-5)+int((me.x/50-5-int(me.x/50-5))*4)*.25)
-	y_temp = (int(me.y/50-5)+int((me.y/50-5-int(me.y/50-5))*4)*.25)
-	print(connections[(x_temp,y_temp)])
-	for i in connections[(x_temp,y_temp)]:
-		pg.draw.line(gameDisplay,(0,127,127),((x_temp+5)*50,(y_temp+5)*50),(nodes[i-1].x,nodes[i-1].y))
+	#print((me.x,me.y))
+	x_temp = (int(me.x/50-5)+int((me.x/50-5-int(me.x/50-5))*2)*.5)
+	y_temp = (int(me.y/50-5)+int((me.y/50-5-int(me.y/50-5))*2)*.5)
+	#print(helper[connections[(x_temp,y_temp)]])
+	for i in helper[connections[(x_temp,y_temp)]]:
+		pg.draw.line(gameDisplay,(0,127,127),((x_temp+5)*50,(y_temp+5)*50),(nodes[i].x,nodes[i].y))
+
+	#print((zomb.x,zomb.y))
+	x_temp = (int(zomb.x/50-5)+int((zomb.x/50-5-int(zomb.x/50-5))*2)*.5)
+	y_temp = (int(zomb.y/50-5)+int((zomb.y/50-5-int(zomb.y/50-5))*2)*.5)
+	#print(connections[(x_temp,y_temp)])
+	for i in helper[connections[(x_temp,y_temp)]]:
+		pg.draw.line(gameDisplay,(0,0,127),((x_temp+5)*50,(y_temp+5)*50),(nodes[i].x,nodes[i].y))
+
 	me.draw()
 	zomb.draw()
 	for i in range(0,len(walls)):
